@@ -18,8 +18,4 @@ function Laser(x, y, p){
 	this.update = function(){
 		this.pos.x += this.speed;
 	}
-
-	this.updateLaser = function(laser){
-		this.colour = laser;
-	}
 }

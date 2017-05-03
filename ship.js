@@ -1,6 +1,7 @@
 function Ship(){
 	this.pos = new Location(window.innerWidth/5, 150);
 	this.ship_img = loadImage("resources/ships/ship.png");
+	this.powerup = null;
 
 	this.display = function(){
 		image(this.ship_img, this.pos.x, this.pos.y, this.ship_img.width/4, this.ship_img.height/4);

@@ -4,16 +4,21 @@ var stars = [];
 
 var ship;
 
+var powerups = [];
+var p_ = true;
+var shield_img;
+var powerupTimer = 0;
+
 var lasers = [];
 var maxLasers = 3;
-var powerup = "none";
+var laserColour = "none";
 
 var enemies = [];
 var bgEnemies = [];
 var hitCount = 0;
 
 var waveMultiplier = 0;
-var w = true;
+var w_ = true;
 var waveCounter = 0;
 var wave = 1;
 var waveFont;
@@ -23,18 +28,17 @@ var C = SAT.Circle;
 
 function setup(){
 	createCanvas(window.innerWidth, window.innerHeight);
-
-	ship = new Ship(); // Creating the ship
+	shield_img = loadImage("resources/powerups/shield.png");
+	ship = new Ship(); 																	// Creating the ship
 	enemies.push(new Enemy(0), new Enemy(0), new Enemy(0), new Enemy(0), new Enemy(0)); // Creating 5 enemies
-	bgEnemies.push(new bgEnemy(1), new bgEnemy(2)); // Creating background enemy ships
-	for(i = 0; i < 100; i++){ 		// Creating background stars
+	bgEnemies.push(new bgEnemy(1), new bgEnemy(2)); 									// Creating background enemy ships
+	for(i = 0; i < 100; i++){ 															// Creating background stars
 		stars.push(new Stars());
 	}
-	waveFont = loadFont('resources/fonts/WIDEAWAKEBLACK.ttf'); // Loading the main font
+	waveFont = loadFont('resources/fonts/WIDEAWAKEBLACK.ttf'); 							// Loading the main font
 }
 
 function draw(){
-	noCursor();
 	background(0);
 
 	// Stars Function Calls
@@ -52,7 +56,7 @@ function draw(){
 	screenCheck_();
 
 	if(playing && ship != null){
-
+		noCursor();
 		screenCheck();
 
 		// Title Text
@@ -79,6 +83,18 @@ function draw(){
 		fill(255, 0, 0);
 		text(3-lasers.length, window.innerWidth-45, 62);
 
+		// Powerup Text
+		if(ship.powerup != null){
+			if(powerupTimer < 500){
+				powerupTimer++;
+				image(shield_img, window.innerWidth-55, 80, shield_img.width/12, shield_img.height/12);
+			}else{
+				powerupTimer = 0;
+				ship.powerup = null;
+				ship.ship_img = loadImage("resources/ships/ship.png");
+			}
+		}
+
 		// Ship Function Calls
 		ship.display();
 		ship.update();
@@ -88,14 +104,27 @@ function draw(){
 		}
 
 		if(wave % 25 === 0){
-			if(w){
+			if(w_){
 				enemies.push(new Enemy(waveMultiplier * 2));
 			}
-			w = false;
+			w_ = false;
 		}
 
 		if(wave % 25 != 0){
-			w = true;
+			w_ = true;
+		}
+
+		if(hitCount % 30 === 0){
+			if(p_){
+				if(hitCount != 0){
+					powerups.push(new Shield());
+				}
+			}
+			p_ = false;
+		}
+
+		if(hitCount % 30 != 0){
+			p_ = true;
 		}
 
 		if(collision()){
@@ -113,6 +142,12 @@ function draw(){
 		for(i = 0; i < enemies.length; i++){
 			enemies[i].display();
 			enemies[i].update();
+		}
+
+		// Powerup Function Calls
+		for(i = 0; i < powerups.length; i++){
+			powerups[i].display();
+			powerups[i].update();
 		}
 
 	}else{
@@ -188,20 +223,24 @@ function screenCheck_(){
 
 function collision(){
 	if(playing && ship != null){
-		for(i = 0; i < enemies.length; i++){
-			if(ship != null && enemies != null){
-				a = new C(new V(ship.pos.x, ship.pos.y), 15);
-				b = new C(new V(enemies[i].pos.x, enemies[i].pos.y), 15);
-			}
+		// Collision between ship and enemies
+		if(ship.powerup != "shield"){
+			for(i = 0; i < enemies.length; i++){
+				if(ship != null && enemies != null){
+					a = new C(new V(ship.pos.x, ship.pos.y), 15);
+					b = new C(new V(enemies[i].pos.x, enemies[i].pos.y), 15);
+				}
 
-			response = new SAT.Response();
-			collided = SAT.testCircleCircle(a, b, response);
-			if(collided == true){
-				console.log("You were hit!");
-				ship = null;
+				response = new SAT.Response();
+				collided = SAT.testCircleCircle(a, b, response);
+				if(collided == true){
+					console.log("You were hit!");
+					ship = null;
+				}
 			}
 		}
-
+		
+		// Collision between lasers and enemies
 		for(i = 0; i < lasers.length; i++){
 			a = new C(new V(lasers[i].pos.x, lasers[i].pos.y), 3);
 			for(i_ = 0; i_ < enemies.length; i_++){
@@ -218,13 +257,30 @@ function collision(){
 				}
 			}
 		}
+
+		// Collision between ship and powerups
+		for(i = 0; i < powerups.length; i++){
+			if(ship != null && powerups != null){
+				a = new C(new V(ship.pos.x, ship.pos.y), 15);
+				b = new C(new V(powerups[i].pos.x, powerups[i].pos.y), 15);
+			}
+
+			response = new SAT.Response();
+			collided = SAT.testCircleCircle(a, b, response);
+			if(collided == true){
+				console.log("You picked up a powerup: " + powerups[i].type);
+				ship.powerup = "shield";
+				ship.ship_img = loadImage("resources/ships/shipShield.png");
+				powerups.splice(i, 1);
+			}
+		}
 	}
 }
 
 function fire(){
 	if(playing && ship != null){
 		if(lasers.length < maxLasers){
-			lasers.push(new Laser(ship.pos.x, ship.pos.y, powerup));
+			lasers.push(new Laser(ship.pos.x, ship.pos.y, laserColour));
 		}
 	}
 }
@@ -239,10 +295,12 @@ function keyPressed(){
 
 function rainbow(){
 	if(playing && ship != null){
-		if(powerup == "none"){
-			powerup = "rainbow";
+		if(laserColour == "none"){
+			maxLasers = 999;
+			laserColour = "rainbow";
 		}else{
-			powerup = "none";
+			maxLasers = 3;
+			laserColour = "none";
 		}
 	}
 }
